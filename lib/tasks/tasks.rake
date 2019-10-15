@@ -15,10 +15,15 @@ namespace :sheet do
     sheet = creek.sheets[num.to_i]
 
     # TODO we need some way to differentiate between a new object to create and a template object that just needs to be modified
-    # if object_action == 'generate'
-    response_hash = SpecImporter.create_object(sheet)
-    # elsif object_action == 'update existing'
-    # response_hash = SpecImporter.update_object(sheet)
+    if object_action == 'create'
+      response_hash = SpecImporter.create_object(sheet)
+    elsif object_action == 'update'
+      response_hash = SpecImporter.update_object(sheet)
+    elsif object_action == 'remove'
+      response_hash = SpecImporter.delete_object(sheet)
+    else
+      puts 'No action was selected for this object. Leaving template defaults.'
+    end
 
     if response_hash[:fae_generator_type] == 'nested_scaffold' && parent_class.present?
       response_hash[:script_args] << "--parent-model=#{parent_class}"
