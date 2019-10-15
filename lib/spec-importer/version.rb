@@ -1,0 +1,3 @@
+module SpecImporter
+  VERSION = "0.0.1"
+end
