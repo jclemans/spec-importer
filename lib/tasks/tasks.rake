@@ -15,11 +15,11 @@ namespace :sheet do
     sheet = creek.sheets[num.to_i]
 
     # TODO we need some way to differentiate between a new object to create and a template object that just needs to be modified
-    if object_action == 'create'
+    if object_action == 'Create'
       response_hash = SpecImporter.create_object(sheet)
-    elsif object_action == 'update'
+    elsif object_action == 'Update'
       response_hash = SpecImporter.update_object(sheet)
-    elsif object_action == 'remove'
+    elsif object_action == 'Remove'
       response_hash = SpecImporter.delete_object(sheet)
     else
       puts 'No action was selected for this object. Leaving template defaults.'
