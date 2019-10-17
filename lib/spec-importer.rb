@@ -17,6 +17,13 @@ module SpecImporter
       end
 
       response[:model_name] = row['B'] if index == 0
+
+      # Let's check if this model already exists in the app. If so, output a message and exit the import.
+      if Object.const_defined?(response[:model_name])
+        puts "#{response[:model_name].underscore}.rb already exists! Change the spec action to 'Update' or 'Remove' if you want to modify this object."
+        break
+      end
+
       if index == 8
         response[:fae_generator_type] = row['B']
         response[:parent_class] = row['D']
@@ -79,6 +86,7 @@ module SpecImporter
               '# ',
               before: "= #{find_object_field_type(row['B'])} f, :#{row['A']}"
             )
+          end
         elsif row['E'] == 'Update'
           # Changes are tricky to automate since we could be changing form field names, validations, db column names or types, etc.
           # To start lets inject a "TODO" note on the model to callout needed changes
