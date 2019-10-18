@@ -12,8 +12,11 @@ namespace :sheet do
     STDOUT.puts(creek.sheets.to_a.map.with_index { |obj, i| "#{i}: #{obj.name}" })
     STDOUT.puts "Select sheet to import: [0-#{creek.sheets.length}]"
     num = STDIN.gets.chomp
+
     sheet = creek.sheets[num.to_i]
     object_action = sheet.simple_rows.first['D']
+    fae_generator_type = sheet.simple_rows.to_a[8]['B']
+    parent_class = sheet.simple_rows.to_a[8]['D']
 
     # TODO we need some way to differentiate between a new object to create and a template object that just needs to be modified
     STDOUT.puts "Action (row 1, column D) set for this sheet is '#{object_action}'. Is that what you want to do? [y, n]"
@@ -21,20 +24,19 @@ namespace :sheet do
     break if continue != 'y'
 
     if object_action == 'Create'
-      response_hash = SpecImporter.create_object(sheet)
+      script_args = SpecImporter.create_object(sheet)
     elsif object_action == 'Update'
-      response_hash = SpecImporter.update_object(sheet)
+      script_args = SpecImporter.update_object(sheet)
     elsif object_action == 'Remove'
-      response_hash = SpecImporter.delete_object(sheet)
+      script_args = SpecImporter.delete_object(sheet)
     else
-      puts 'No action was selected for this object. Leaving template defaults.'
+      STDOUT.puts 'No action was selected for this object. Leaving template defaults.'
     end
 
-    if response_hash[:fae_generator_type] == 'nested_scaffold' && parent_class.present?
-      response_hash[:script_args] << "--parent-model=#{parent_class}"
-    else
-      sh "#{response_hash[:script_args].join(' ')}"
+    if fae_generator_type == 'nested_scaffold' && parent_class.present?
+      script_args << "--parent-model=#{parent_class}"
     end
+    sh "#{script_args.join(' ')}" if !script_args.empty?
   end
 
   task :helpers => :environment do
