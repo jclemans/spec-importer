@@ -21,8 +21,9 @@ module SpecImporter
       if index == 10
         script_args <<  "rails g fae:#{fae_generator_type} #{model_name}" if index == 10
       elsif index > 10
-        puts "Adding: #{row['A']}:#{row['B']}"
-        script_args << "#{row['A']}:#{row['B']}" << (":index" if row['C'] == true)
+        optional_index = row['C'] == true ? ':index' : ''
+        row_args = "#{row['A']}:#{row['B']}" << optional_index
+        script_args << row_args
       else
         next
       end
@@ -55,31 +56,28 @@ module SpecImporter
           # comment out this row's field for static page forms
           if fae_generator_type == 'Fae::StaticPage'
             thor_action(
-              :inject_into_file,
+              :comment_lines,
               "app/views/admin/content_blocks/#{model_name.underscore.gsub('_page', '')}.html.slim",
-              '/ ',
-              before: "= #{self.find_page_field_type(row['B'])} f, :#{row['A']}"
+              /"= #{self.find_page_field_type(row['B'])} f, :#{row['A']}"/
             )
           # comment out this row's field for regular object forms
           else
             thor_action(
-              :inject_into_file,
+              :comment_lines,
               "app/views/admin/#{model_name.underscore.pluralize}/_form.html.slim",
-              '/ ',
-              before: "= #{self.find_object_field_type(row['B'])} f, :#{row['A']}"
+              /"= #{self.find_object_field_type(row['B'])} f, :#{row['A']}"/
             )
           end
         elsif row['E'] == 'Update'
           # Changes are tricky to automate since we could be changing form field names, validations, db column names or types, etc.
           # To start lets inject a "TODO" note on the model to callout needed changes
           thor_action(
-            :inject_into_file,
+            :prepend_to_file,
             "app/models/#{model_name.underscore}.rb",
-            "# TODO: CMS spec changes for this row:\n# #{row}\n",
-            before: "class #{model_name}"
+            "# TODO: CMS spec changes for this row:\n# #{row}\n"
           )
         else
-          # No changes to this row. It already exists in the app, so just skip it
+          # No changes to this row, so just skip it.
           next
         end
 
@@ -96,9 +94,9 @@ module SpecImporter
 
     # Disable admin route for this object
     thor_action(
-      :inject_into_file,
-      'config/routes.rb', '# ',
-      before: "resources :#{model_name.underscore.pluralize}"
+      :comment_lines,
+      'config/routes.rb',
+      /"resources :#{model_name.underscore.pluralize}"/
     )
     # Add a note to remove admin navigation related to the object.
     thor_action(

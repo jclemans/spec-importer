@@ -5,42 +5,47 @@ require 'thor'
 namespace :sheet do
   task :import, [:file_path, :sheet_number] => :environment do |t, args|
     desc 'Add, Remove, or Update Fae powered CMS objects from an xlsx file.'
+    if args.count == 2
+      # Try getting the file path and sheet from args if passed in
+      path               = args[:file_path]
+      num                = args[:sheet_number]
+      creek              = Creek::Book.new path
+    else
+      # Use the command line prompt to set file path and choose sheet
+      STDOUT.puts "Enter path to xlsx file in project (E.g. 'tmp/testfile.xlsx')."
+      path = STDIN.gets.chomp
+      creek = Creek::Book.new path
+      STDOUT.puts(creek.sheets.to_a.map.with_index { |obj, i| "#{i}: #{obj.name}" })
+      STDOUT.puts "Select sheet to import: [0-#{creek.sheets.length}]"
+      num = STDIN.gets.chomp
+    end
 
-    # Uncomment to use the command line UI
-    # STDOUT.puts "Enter path to xlsx file in project (E.g. 'tmp/testfile.xlsx')."
-    # path = STDIN.gets.chomp
-    # STDOUT.puts(creek.sheets.to_a.map.with_index { |obj, i| "#{i}: #{obj.name}" })
-    # STDOUT.puts "Select sheet to import: [0-#{creek.sheets.length}]"
-    # num = STDIN.gets.chomp
-
-    # Else run the task with args passed in for the file path and sheet #
-    path = args[:file_path]
-    num = args[:sheet_number]
-
-    creek = Creek::Book.new path
-    sheet = creek.sheets[num.to_i]
-    object_action = sheet.simple_rows.first['D']
+    sheet              = creek.sheets[num.to_i]
+    object_action      = sheet.simple_rows.first['D']
+    parent_class       = sheet.simple_rows.to_a[8]['D']
     fae_generator_type = sheet.simple_rows.to_a[8]['B']
-    parent_class = sheet.simple_rows.to_a[8]['D']
 
-    if object_action == 'Create'
+    case object_action
+    when 'Create'
       script_args = SpecImporter.create_object(sheet)
-    elsif object_action == 'Update'
+    when 'Update'
       script_args = SpecImporter.update_object(sheet)
-    elsif object_action == 'Remove'
+    when 'Remove'
       script_args = SpecImporter.delete_object(sheet)
     else
-      STDOUT.puts 'No action was selected for this object. Proceeding with template defaults.'
+      abort 'No action was selected for this object. Task aborted.'
     end
 
     if fae_generator_type == 'nested_scaffold' && parent_class.present?
       script_args << "--parent-model=#{parent_class}"
     end
-    sh "#{script_args.join(' ')}" if !script_args.empty?
+    # puts for debugging, sh for running
+    STDOUT.puts "#{script_args.join(' ')}" if !script_args.empty?
+    # sh "#{script_args.join(' ')}" if !script_args.empty?
   end
 
-  task :helpers => :environment do
-    desc 'Import the helper text for an Object fron an xlsx file. Not currently working for Pages.'
+  task :update_object_form => :environment do
+    desc 'Read and import field labels and helper text from a xlsx cms spec file.'
 
     STDOUT.puts "Enter path to xlsx file in project (ex. tmp/file.xlsx)"
     path = STDIN.gets.chomp
