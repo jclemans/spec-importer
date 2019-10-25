@@ -8,6 +8,9 @@ module SpecImporter
     fae_generator_type = sheet.simple_rows.to_a[8]['B']
     parent_class = sheet.simple_rows.to_a[8]['D']
 
+    # Exit if the current model already was created.
+    return if Object.const_defined?(model_name)
+
     sheet.simple_rows.each_with_index do |row, index|
       next if row['A'] == 'skip'
       if index > 10 && (row['A'].blank? || row['B'].blank?)
@@ -15,17 +18,11 @@ module SpecImporter
         break
       end
 
-      # Let's check if this model already exists in the app. If so, output a message and exit the import.
-      if Object.const_defined?(model_name)
-        puts "#{model_name.underscore}.rb already exists! Change the spec action to 'Update' or 'Remove' if you want to modify this object."
-        break
-      end
-
       if index == 10
         script_args <<  "rails g fae:#{fae_generator_type} #{model_name}" if index == 10
       elsif index > 10
         puts "Adding: #{row['A']}:#{row['B']}"
-        script_args << "#{row['A']}:#{row['B']}"
+        script_args << "#{row['A']}:#{row['B']}" << (":index" if row['C'] == true)
       else
         next
       end

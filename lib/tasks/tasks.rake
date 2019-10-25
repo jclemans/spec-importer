@@ -23,11 +23,6 @@ namespace :sheet do
     fae_generator_type = sheet.simple_rows.to_a[8]['B']
     parent_class = sheet.simple_rows.to_a[8]['D']
 
-    # TODO we need some way to differentiate between a new object to create and a template object that just needs to be modified
-    # STDOUT.puts "Action (row 1, column D) set for this sheet is '#{object_action}'. Is that what you want to do? [y, n]"
-    # continue = STDIN.gets.chomp
-    # break if continue != 'y'
-
     if object_action == 'Create'
       script_args = SpecImporter.create_object(sheet)
     elsif object_action == 'Update'
