@@ -3,27 +3,31 @@ require 'spec-importer/railtie' if defined?(Rails)
 
 module SpecImporter
   def self.create_object(sheet)
-    script_args = []
     model_name = sheet.simple_rows.first['B']
-    fae_generator_type = sheet.simple_rows.to_a[8]['B']
-    parent_class = sheet.simple_rows.to_a[8]['D']
-
     # Exit if the current model already was created.
     return if Object.const_defined?(model_name)
 
+    fae_generator_type = sheet.simple_rows.to_a[8]['B']
+    parent_class = sheet.simple_rows.to_a[8]['D']
+    script_args = {
+      fae: ["rails g fae:#{fae_generator_type} #{model_name}"],
+      joins: []
+    }
+
     sheet.simple_rows.each_with_index do |row, index|
       next if row['A'] == 'skip'
-      if index > 10 && (row['A'].blank? || row['B'].blank?)
-        puts "Nothing to read in column A or B. Exiting the importer."
-        break
-      end
 
-      if index == 10
-        script_args <<  "rails g fae:#{fae_generator_type} #{model_name}" if index == 10
-      elsif index > 10
-        optional_index = row['C'] == true ? ':index' : ''
-        row_args = "#{row['A']}:#{row['B']}" << optional_index
-        script_args << row_args
+      if index > 10
+        break if row['A'].blank? || row['B'].blank?
+        if row['B'] == 'join'
+          # generate join table model and migration
+          join_models = row['A'].split.sort
+          script_args[:joins] << self.generate_join(join_models)
+        else
+          optional_index = row['C'] == true ? ':index' : ''
+          row_args = "#{row['A']}:#{row['B']}" << optional_index
+          script_args[:fae] << row_args
+        end
       else
         next
       end
@@ -46,12 +50,18 @@ module SpecImporter
 
       if index > 10
         if row['E'] == 'Add'
-          puts "Adding new field: #{row['A']}:#{row['B']}"
-          script_args << "#{row['A']}:#{row['B']}"
+          if row['B'] == 'join'
+            # generate join table model and migration
+            join_models = row['A'].split.sort
+            self.generate_join(join_models)
+          else
+            puts "Adding new field: #{row['A']}:#{row['B']}"
+            script_args << "#{row['A']}:#{row['B']}"
+          end
         elsif row['E'] == 'Remove'
           puts "Removing field: #{row['A']}:#{row['B']}"
           # generate a migration to remove the current row's column from the db
-          script_args <<  "rails g migration Remove#{row['A']}From#{model_name} #{row['A']}:#{row['B']}"
+          sh "rails g migration Remove#{row['A'].classify}From#{model_name} #{row['A']}:#{row['B']}"
 
           # comment out this row's field for static page forms
           if fae_generator_type == 'Fae::StaticPage'
@@ -74,7 +84,7 @@ module SpecImporter
           thor_action(
             :prepend_to_file,
             "app/models/#{model_name.underscore}.rb",
-            "# TODO: CMS spec changes for this row:\n# #{row}\n"
+            "# TODO: Spec Changes for field '#{row['A']}', Notes: #{row['L']}\n"
           )
         else
           # No changes to this row, so just skip it.
@@ -84,11 +94,9 @@ module SpecImporter
       end
 
     end
-    return script_args
   end
 
   def self.delete_object(sheet)
-    script_args = []
     model_name = sheet.simple_rows.first['B']
     fae_generator_type = sheet.simple_rows.to_a[8]['B']
 
@@ -111,7 +119,6 @@ module SpecImporter
     # sh "rails g migration Remove#{response[:model_name]}"
     # > Remove the model, fae views, and controllers
     # sh "rails destroy fae:#{response[:fae_generator_type]} #{response[:model_name]}"
-    script_args
   end
 
   def self.find_page_field_type(column_b)
@@ -138,6 +145,10 @@ module SpecImporter
     else
       'fae_input'
     end
+  end
+
+  def self.generate_join(models)
+    "rails g model #{models.first.classify}#{models.second.classify} #{models.first}:references:index #{models.second}:references:index"
   end
 
 end
