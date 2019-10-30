@@ -151,4 +151,68 @@ module SpecImporter
     "rails g model #{models.first.classify}#{models.second.classify} #{models.first}:references:index #{models.second}:references:index"
   end
 
+  def self.update_form_fields(sheet)
+    # Read and import field labels and helper text for an object that has been generated.
+    model = sheet.simple_rows.first['B']
+    fae_generator_type = sheet.simple_rows.to_a[8]['B']
+
+    sheet.simple_rows.each_with_index do |row, index|
+      next if index < 11
+      if row['F'].blank?
+        STDOUT.puts "No form label present in column F. Exiting the form/helper updater."
+        break
+      end
+      if fae_generator_type == 'page'
+        form_path = "app/views/admin/content_blocks/#{model.underscore.gsub('_page', '')}.html.slim"
+      else
+        form_path = "app/views/admin/#{model.underscore.pluralize}/_form.html.slim"
+      end
+      # add labels and helper_text for each form field
+      thor_action(
+        :gsub_file,
+        form_path,
+        /f, :#{row['A']}\b/, "f, :#{row['A']}, label: '#{row["F"]}', helper_text: '#{row["K"]}'"
+      )
+
+      # add a new form field for the join association.
+      if row['B'] == 'join'
+        thor_action(
+          :inject_into_file,
+          form_path,
+          "\t\t= fae_multiselect f, :#{row['A'].split.join('_')} # optionally a fae_grouped_select field\n",
+          after: "main.content\n"
+        )
+      end
+
+      if row['B'] == 'image'
+        required_string = row['H'] ? ", required: true, " : ''
+        # add image form field details
+        thor_action(
+          :inject_into_file,
+          form_path,
+          "#{required_string}",
+          after: "= fae_image_form f, :#{row['A']}"
+        )
+      end
+      # if required is true, add presence validations to object model
+      if row['H'] == true && fae_generator_type != 'page'
+        thor_action(
+          :inject_into_file,
+          "app/models/#{model.underscore}.rb",
+          "\tvalidates_presence_of :#{row['A']}\n",
+          after: "include Fae::BaseModelConcern\n"
+        )
+      end
+
+      # if markdown is true, add it to the form
+      if row['I'] == true
+        thor_action(
+          :gsub_file,
+          form_path,
+          /f, :#{row['A']}\b/, "f, :#{row['A']}, markdown: true"
+        )
+      end
+    end
+  end
+
 end

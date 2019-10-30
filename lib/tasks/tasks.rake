@@ -46,9 +46,11 @@ namespace :sheet do
       sh generate_join_string
     end
     sh 'rake db:migrate'
-    # then restart the application
-    sh 'docker-compose down'
-    sh 'docker-compose up'
+    STDOUT.puts "running the form updater to apply labels, helper text, etc...\n"
+    byebug
+    SpecImporter.update_form_fields(sheet)
+    STDOUT.puts "restarting the rails server to update routes and things...\n"
+    sh 'rails restart'
   end
 
   task :update_form => :environment do
@@ -62,69 +64,8 @@ namespace :sheet do
     STDOUT.puts "Select sheet to import: [0-#{creek.sheets.length}]"
     num = STDIN.gets.chomp
     sheet = creek.sheets[num.to_i]
-    model = sheet.simple_rows.first['B']
-    fae_generator_type = sheet.simple_rows.to_a[8]['B']
 
-    sheet.simple_rows.each_with_index do |row, index|
-      next if index < 11
-      if row['F'].blank?
-        STDOUT.puts "No form label present in column F. Exiting the form/helper updater."
-        break
-      end
-      # add labels for each form field
-      thor_action(
-        :gsub_file,
-        "app/views/admin/#{model.underscore.pluralize}/_form.html.slim",
-        /, :":#{row['A']}"/, ", :#{row['A']}, label: '#{row["F"]}'"
-      )
-
-      # add helper text after the label
-      thor_action(
-        :inject_into_file,
-        "app/views/admin/#{model.underscore.pluralize}/_form.html.slim",
-        ", helper_text: '#{row["J"]}'",
-        after: ":#{row['A']}, label: '#{row["F"]}'"
-      )
-
-      # TODO: add a generate join table and migrate to the create and update object process
-      if row['B'] == 'join'
-        # add form field for the join association.
-        thor_action(
-          :inject_into_file,
-          "app/views/admin/#{model.underscore.pluralize}/_form.html.slim",
-          "\t\t= fae_multiselect f, :#{row['A'].split.join('_')} # optionally a fae_grouped_select field",
-          after: "main.content\n"
-        )
-      end
-
-      if row['B'] == 'image' && fae_generator_type == 'scaffold'
-        # add image form field details
-        thor_action(
-          :inject_into_file,
-          "app/views/admin/#{model.underscore.pluralize}/_form.html.slim",
-          "label: '#{row["F"]}', required: '#{row["H"]}', helper_text: '#{row["K"]}'",
-          after: "= fae_image_form f, :#{row['A']}"
-        )
-      end
-      # if required is true, add presence validations to object model
-      if row['H'] == true
-        thor_action(
-          :inject_into_file,
-          "app/models/#{model.underscore}.rb",
-          "\tvalidates_presence_of :#{row['A']}\n",
-          after: "include Fae::BaseModelConcern\n"
-        )
-      end
-
-      # if markdown is true, add it to the form
-      if row['I'] == true
-        thor_action(
-          :inject_into_file,
-          "app/views/admin/#{model.underscore.pluralize}/_form.html.slim",
-          ", markdown: true", after: row['A'], force: true
-        )
-      end
-    end
+    SpecImporter.update_form_fields(sheet)
   end
 
   class ThorAction < Thor
