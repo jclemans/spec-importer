@@ -3,12 +3,13 @@ require 'creek'
 require 'thor'
 
 namespace :sheet do
-  task :import, [:file_path, :sheet_number] => :environment do |t, args|
+  task :import, [:file_path, :sheet_number, :object_action] => :environment do |t, args|
     desc 'Add, Remove, or Update Fae powered CMS objects from an xlsx file.'
-    if args.count == 2
+    if args.count == 3
       # Try getting the file path and sheet from args if passed in
       path               = args[:file_path]
       num                = args[:sheet_number]
+      object_action      = args[:object_action]
       creek              = Creek::Book.new path
     else
       # Use the command line prompt to set file path and choose sheet
@@ -21,9 +22,10 @@ namespace :sheet do
     end
 
     sheet              = creek.sheets[num.to_i]
-    object_action      = sheet.simple_rows.first['D']
     parent_class       = sheet.simple_rows.to_a[8]['D']
     fae_generator_type = sheet.simple_rows.to_a[8]['B']
+    # set the action from the sheet if it's not passed in via the task args
+    object_action      ||= sheet.simple_rows.first['D']
 
     case object_action
     when 'Create'
@@ -39,17 +41,19 @@ namespace :sheet do
     if fae_generator_type == 'nested_scaffold' && parent_class.present?
       script_args[:fae] << "--parent-model=#{parent_class}"
     end
-    # Use the puts for debugging, sh for running
-    # STDOUT.puts "#{script_args.join(' ')}" if !script_args.empty?
+    # run the generators
     sh "#{script_args[:fae].join(' ')}"
     script_args[:joins].each do |generate_join_string|
       sh generate_join_string
     end
+    # run migrations
     sh 'rake db:migrate'
-    STDOUT.puts "running the form updater to apply labels, helper text, etc...\n"
-    byebug
+    # apply form labels, helper text, etc
     SpecImporter.update_form_fields(sheet)
-    STDOUT.puts "restarting the rails server to update routes and things...\n"
+  end
+
+  task :restart => :environment do
+    desc 'restart the server after an import to get new routes/objects loaded'
     sh 'rails restart'
   end
 
