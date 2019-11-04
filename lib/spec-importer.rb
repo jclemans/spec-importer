@@ -44,7 +44,7 @@ module SpecImporter
       parent_class = sheet.simple_rows.to_a[8]['D']
 
       sheet.simple_rows.each_with_index do |row, index|
-        next if row['A'] == 'skip'
+        next if row['E'] == 'Skip'
         if index > 10 && (row['A'].blank? || row['B'].blank?)
           puts "Nothing to read in column A or B. Exiting the importer."
           break
@@ -157,7 +157,7 @@ module SpecImporter
       join_model_name = "#{models.first}_#{models.second.pluralize}"
       model_a = models.first
       model_b = models.second
-      # TODO WIP - test this method
+
       thor_action(
         :inject_into_file,
         "app/models/#{model_a.underscore}.rb",
@@ -173,9 +173,41 @@ module SpecImporter
       )
     end
 
+    def add_nested_form_table(parent_model, nested_model)
+      # copy the nested table to the parent model form view
+      # then update the parent_item to match the correct class
+      if parent_model == 'Fae::StaticPage'
+        # TODO: the nested form path cannot be found and is causing an error
+        nested_form_path = Rails.root.join("views/admin/#{nested_model.underscore.pluralize}/table.html.slim").to_s
+        thor_action(
+          :get, nested_form_path,
+          "app/views/admin/content_blocks/#{parent_model.underscore}.html.slim"
+        )
+        thor_action(
+          :gsub_file,
+          "app/views/admin/content_blocks/#{parent_model.underscore}.html.slim",
+          /parent_item: @parent_item,/, "parent_item: Fae::StaticPage.find_by_id(@item.id),"
+        )
+      else
+        # parent is_a? Object
+        # TODO: the nested form path cannot be found and is causing an error
+        nested_form_path = Rails.root.join("views/admin/#{nested_model.underscore.pluralize}/table.html.slim").to_s
+        thor_action(
+          :get, nested_form_path,
+          "app/views/admin/#{parent_model.underscore.pluralize}/_form.html.slim"
+        )
+        thor_action(
+          :gsub_file,
+          "app/views/admin/#{parent_model.underscore.pluralize}/_form.html.slim",
+          /parent_item: @parent_item,/, "parent_item: @item.id,"
+        )
+      end
+    end
+
     def update_form_fields(sheet)
       # Read and import field labels and helper text for an object that has been generated.
       model = sheet.simple_rows.first['B']
+      parent_model = sheet.simple_rows.to_a[8]['D']
       fae_generator_type = sheet.simple_rows.to_a[8]['B']
 
       sheet.simple_rows.each_with_index do |row, index|
@@ -204,7 +236,7 @@ module SpecImporter
           thor_action(
             :inject_into_file,
             form_path,
-            "\s\s\s\s= fae_multiselect f, :#{joined_model.pluralize}",
+            "\s\s\s\s= fae_multiselect f, :#{joined_model.pluralize}\n",
             after: "main.content\n"
           )
           self.associate_joined(join_models)
@@ -238,6 +270,10 @@ module SpecImporter
             /f, :#{row['A']}\b/, "f, :#{row['A']}, markdown: true"
           )
         end
+      end
+      # For nested scaffold objects, we will want their nested table on their parent's form
+      if fae_generator_type == 'nested_scaffold'
+        self.add_nested_form_table(parent_model, model)
       end
     end
 

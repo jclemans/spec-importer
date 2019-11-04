@@ -2,8 +2,8 @@ require 'rake'
 require 'creek'
 require 'thor'
 
-namespace :sheet do
-  task :import, [:file_path, :sheet_number, :object_action] => :environment do |t, args|
+namespace :import do
+  task :object, [:file_path, :sheet_number, :object_action] => :environment do |t, args|
     desc 'Add, Remove, or Update Fae powered CMS objects from an xlsx file.'
     if args.count == 3
       # Try getting the file path and sheet from args if passed in
@@ -57,7 +57,7 @@ namespace :sheet do
     sh 'rails restart'
   end
 
-  task :update_form => :environment do
+  task :form => :environment do
     desc 'Read and import field labels and helper text from a xlsx cms spec file.'
 
     STDOUT.puts "Enter path to xlsx file in project (ex. tmp/file.xlsx)"
