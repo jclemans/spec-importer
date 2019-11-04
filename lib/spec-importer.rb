@@ -174,34 +174,43 @@ module SpecImporter
     end
 
     def add_nested_form_table(parent_model, nested_model)
-      # copy the nested table to the parent model form view
-      # then update the parent_item to match the correct class
       if parent_model == 'Fae::StaticPage'
-        # TODO: the nested form path cannot be found and is causing an error
-        nested_form_path = Rails.root.join("views/admin/#{nested_model.underscore.pluralize}/table.html.slim").to_s
+        parent_form_path = "app/views/admin/content_blocks/#{parent_model.underscore}.html.slim"
+        parent_item_str = "Fae::StaticPage.find_by_id(@item.id)"
+        # add the has many association to the static page concern
         thor_action(
-          :get, nested_form_path,
-          "app/views/admin/content_blocks/#{parent_model.underscore}.html.slim"
-        )
-        thor_action(
-          :gsub_file,
-          "app/views/admin/content_blocks/#{parent_model.underscore}.html.slim",
-          /parent_item: @parent_item,/, "parent_item: Fae::StaticPage.find_by_id(@item.id),"
+          :inject_into_file,
+          "app/models/concerns/fae/static_page_concern.rb",
+          "  has_many :#{nested_model.underscore.pluralize}, foreign_key: 'static_page_id'",
+          after: "included do\n"
         )
       else
         # parent is_a? Object
-        # TODO: the nested form path cannot be found and is causing an error
-        nested_form_path = Rails.root.join("views/admin/#{nested_model.underscore.pluralize}/table.html.slim").to_s
+        parent_form_path = "app/views/admin/#{parent_model.underscore.pluralize}/_form.html.slim"
+        parent_item_str = "@item"
+        # add the has many association to the parent model
         thor_action(
-          :get, nested_form_path,
-          "app/views/admin/#{parent_model.underscore.pluralize}/_form.html.slim"
-        )
-        thor_action(
-          :gsub_file,
-          "app/views/admin/#{parent_model.underscore.pluralize}/_form.html.slim",
-          /parent_item: @parent_item,/, "parent_item: @item.id,"
+          :inject_into_file,
+          "app/models/#{parent_model.underscore}.rb",
+          "  has_many :#{nested_model.underscore.pluralize}",
+          after: "class #{parent_model} < ApplicationRecord\n"
         )
       end
+      nested_form_path = "app/views/admin/#{nested_model.underscore.pluralize}/table.html.slim"
+      nested_form_string = %(
+section.content\n
+  # TODO: set col values to match settings on #{nested_model.underscore.pluralize}/table.html.slim
+  == render 'fae/shared/nested_table',
+    assoc: :#{nested_model.underscore.pluralize},
+    parent_item: #{parent_item_str},
+    cols: [:on_stage, :on_prod],
+    ordered: true
+)
+      thor_action(
+        :append_to_file,
+        parent_form_path,
+        nested_form_string
+      )
     end
 
     def update_form_fields(sheet)
