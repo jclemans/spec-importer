@@ -192,14 +192,14 @@ module SpecImporter
         thor_action(
           :inject_into_file,
           "app/models/#{parent_model.underscore}.rb",
-          "  has_many :#{nested_model.underscore.pluralize}",
+          "  has_many :#{nested_model.underscore.pluralize}\n",
           after: "class #{parent_model} < ApplicationRecord\n"
         )
       end
       nested_form_path = "app/views/admin/#{nested_model.underscore.pluralize}/table.html.slim"
       nested_form_string = %(
 section.content\n
-  # TODO: set col values to match settings on #{nested_model.underscore.pluralize}/table.html.slim
+  / TODO: set col values to match settings on #{nested_model.underscore.pluralize}/table.html.slim
   == render 'fae/shared/nested_table',
     assoc: :#{nested_model.underscore.pluralize},
     parent_item: #{parent_item_str},
