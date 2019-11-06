@@ -98,29 +98,51 @@ module SpecImporter
       end
     end
 
-    def delete_object(sheet)
-      model_name = sheet.simple_rows.first['B']
-      fae_generator_type = sheet.simple_rows.to_a[8]['B']
+    def remove_objects(sheet)
+      sheet.simple_rows.each_with_index do |row, index|
+        next if index < 2 || row['C'] != true
+        model_name = row['A']
+        break if index > 1 && model_name.blank?
 
-      # Disable admin route for this object
-      thor_action(
-        :comment_lines,
-        'config/routes.rb',
-        /"resources :#{model_name.underscore.pluralize}"/
-      )
-      # Add a note to remove admin navigation related to the object.
-      thor_action(
-        :inject_into_file,
-        'app/models/concerns/fae/navigation_concern.rb',
-        "\t\t\t# TODO: disable nav for #{model_name}\n",
-        after: "def structure\n"
-      )
+        STDOUT.puts "Trying to remove #{model_name}\n"
+        # Disable the admin route for this object
+        begin
+          thor_action(
+            :comment_lines,
+            'config/routes.rb',
+            /"resources :#{model_name.underscore.pluralize}"/
+          )
+          # Add a note to remove admin navigation related to the object.
+          thor_action(
+            :inject_into_file,
+            'app/models/concerns/fae/navigation_concern.rb',
+            "\t\t\t# TODO: disable nav for #{model_name}\n",
+            after: "def structure\n"
+          )
+          # comment out the model and controller code for this model
+          thor_action(:comment_lines, "app/models/#{model_name.underscore}.rb", /./)
 
-      # Optional if you want to fully destroy the model instead of just disabling/hiding:
-      # > Create a migration to remove the object table
-      # sh "rails g migration Remove#{response[:model_name]}"
-      # > Remove the model, fae views, and controllers
-      # sh "rails destroy fae:#{response[:fae_generator_type]} #{response[:model_name]}"
+          # if it's a Fae::StaticPage clean up the content blocks controller
+          if index > 27
+            thor_action(
+              :gsub_file,
+              "app/controllers/admin/content_blocks_controller.rb", /#{model_name}, /, ''
+            )
+          # otherwise try to comment out the admin controller (controllers may not exist for join models)
+          else
+            thor_action(:comment_lines, "app/controllers/admin/#{model_name.underscore.pluralize}_controller.rb", /./)
+            thor_action(:comment_lines, "config/initializers/judge.rb", /expose #{model_name}, :slug/)
+          end
+        rescue Exception => e
+          Rails.logger.warn e
+        end
+
+        # Optional: Destroy the model instead of just disabling/hiding
+        # > Create a migration to remove the object table
+        # sh "rails g migration Remove#{response[:model_name]}"
+        # > Remove the model, fae views, and controllers
+        # sh "rails destroy fae:#{response[:fae_generator_type]} #{response[:model_name]}"
+      end
     end
 
     def find_page_field_type(column_b)

@@ -21,35 +21,39 @@ namespace :import do
       num = STDIN.gets.chomp
     end
 
-    sheet              = creek.sheets[num.to_i]
-    parent_class       = sheet.simple_rows.to_a[8]['D']
-    fae_generator_type = sheet.simple_rows.to_a[8]['B']
-    # set the action from the sheet if it's not passed in via the task args
-    object_action      ||= sheet.simple_rows.first['D']
-
-    case object_action
-    when 'Create'
-      script_args = SpecImporter.create_object(sheet)
-    when 'Update'
-      script_args = SpecImporter.update_object(sheet)
-    when 'Remove'
-      script_args = SpecImporter.delete_object(sheet)
+    sheet = creek.sheets[num.to_i]
+    # if the sheet is the "ToRemoveList", read the list and remove objects we don't need
+    if sheet.name.eql? 'ToRemoveList'
+      STDOUT.puts "Reading the ToRemoveList...\n"
+      SpecImporter.remove_objects(sheet)
+    # otherwise read the sheet and create or update object as specified in the sheet
     else
-      abort 'No action was selected for this object. Task aborted.'
-    end
+      parent_class       = sheet.simple_rows.to_a[8]['D']
+      fae_generator_type = sheet.simple_rows.to_a[8]['B']
+      # set the action from the sheet if it's not passed in via the task args
+      object_action      ||= sheet.simple_rows.first['D']
+      case object_action
+      when 'Create'
+        script_args = SpecImporter.create_object(sheet)
+      when 'Update'
+        script_args = SpecImporter.update_object(sheet)
+      else
+        abort 'No action was selected for this object. Task aborted.'
+      end
 
-    if fae_generator_type == 'nested_scaffold' && parent_class.present?
-      script_args[:fae] << "--parent-model=#{parent_class}"
+      if fae_generator_type == 'nested_scaffold' && parent_class.present?
+        script_args[:fae] << "--parent-model=#{parent_class}"
+      end
+      # run the generators
+      sh "#{script_args[:fae].join(' ')}"
+      script_args[:joins].each do |generate_join_string|
+        sh generate_join_string
+      end
+      # run migrations
+      sh 'rake db:migrate'
+      # apply form labels, helper text, etc
+      SpecImporter.update_form_fields(sheet)
     end
-    # run the generators
-    sh "#{script_args[:fae].join(' ')}"
-    script_args[:joins].each do |generate_join_string|
-      sh generate_join_string
-    end
-    # run migrations
-    sh 'rake db:migrate'
-    # apply form labels, helper text, etc
-    SpecImporter.update_form_fields(sheet)
   end
 
   task :restart => :environment do
