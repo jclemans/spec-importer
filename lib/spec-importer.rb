@@ -17,7 +17,7 @@ module SpecImporter
       }
 
       sheet.simple_rows.each_with_index do |row, index|
-        next if row['A'] == 'skip'
+        next if row['E'] == 'Skip'
 
         if index > 10
           break if row['A'].blank? || row['B'].blank?
