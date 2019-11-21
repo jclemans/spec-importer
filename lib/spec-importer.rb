@@ -17,16 +17,16 @@ module SpecImporter
       }
 
       sheet.simple_rows.each_with_index do |row, index|
-        next if row['E'] == 'Skip'
+        next if row['E'].eql? 'Skip'
 
         if index > 10
           break if row['A'].blank? || row['B'].blank?
-          if row['B'] == 'join'
+          if row['B'].eql? 'join'
             # generate join table model and migration
             join_models = row['A'].split.sort
             script_args[:joins] << self.generate_join(join_models)
           else
-            optional_index = row['C'] == true ? ':index' : ''
+            optional_index = row['C'].eql? true ? ':index' : ''
             row_args = "#{row['A']}:#{row['B']}" << optional_index
             script_args[:fae] << row_args
           end
@@ -44,15 +44,15 @@ module SpecImporter
       parent_class = sheet.simple_rows.to_a[8]['D']
 
       sheet.simple_rows.each_with_index do |row, index|
-        next if row['E'] == 'Skip'
+        next if row['E'].eql? 'Skip'
         if index > 10 && (row['A'].blank? || row['B'].blank?)
           puts "Nothing to read in column A or B. Exiting the importer."
           break
         end
 
         if index > 10
-          if row['E'] == 'Add'
-            if row['B'] == 'join'
+          if row['E'].eql? 'Add'
+            if row['B'].eql? 'join'
               # generate join table model and migration
               join_models = row['A'].split.sort
               self.generate_join(join_models)
@@ -60,13 +60,13 @@ module SpecImporter
               puts "Adding new field: #{row['A']}:#{row['B']}"
               script_args << "#{row['A']}:#{row['B']}"
             end
-          elsif row['E'] == 'Remove'
+          elsif row['E'].eql? 'Remove'
             puts "Removing field: #{row['A']}:#{row['B']}"
             # generate a migration to remove the current row's column from the db
             sh "rails g migration Remove#{row['A'].classify}From#{model_name} #{row['A']}:#{row['B']}"
 
             # comment out this row's field for static page forms
-            if fae_generator_type == 'Fae::StaticPage'
+            if fae_generator_type.eql? 'Fae::StaticPage'
               thor_action(
                 :comment_lines,
                 "app/views/admin/content_blocks/#{model_name.underscore.gsub('_page', '')}.html.slim",
@@ -80,7 +80,7 @@ module SpecImporter
                 /"= #{self.find_object_field_type(row['B'])} f, :#{row['A']}"/
               )
             end
-          elsif row['E'] == 'Update'
+          elsif row['E'].eql? 'Update'
             # Changes are tricky to automate since we could be changing form field names, validations, db column names or types, etc.
             # To start lets inject a "TODO" note on the model to callout needed changes
             thor_action(
@@ -196,7 +196,7 @@ module SpecImporter
     end
 
     def add_nested_form_table(parent_model, nested_model)
-      if parent_model == 'Fae::StaticPage'
+      if parent_model.eql? 'Fae::StaticPage'
         parent_form_path = "app/views/admin/content_blocks/#{parent_model.underscore}.html.slim"
         parent_item_str = "Fae::StaticPage.find_by_id(@item.id)"
         # add the has many association to the static page concern
@@ -242,12 +242,12 @@ section.content\n
       fae_generator_type = sheet.simple_rows.to_a[8]['B']
 
       sheet.simple_rows.each_with_index do |row, index|
-        next if index < 11
+        next if index < 11 || row['E'].eql? 'Skip'
         if row['F'].blank?
           STDOUT.puts "No form label present in column F. Exiting the form/helper updater."
           break
         end
-        if fae_generator_type == 'page'
+        if fae_generator_type.eql? 'page'
           form_path = "app/views/admin/content_blocks/#{model.underscore.gsub('_page', '')}.html.slim"
         else
           form_path = "app/views/admin/#{model.underscore.pluralize}/_form.html.slim"
@@ -260,7 +260,7 @@ section.content\n
         )
 
         # add a new form field for the join association and add the has_many through associations
-        if row['B'] == 'join'
+        if row['B'].eql? 'join'
           join_models = row['A'].split.sort
           joined_model = join_models.without(model.underscore).first
 
@@ -273,7 +273,7 @@ section.content\n
           self.associate_joined(join_models)
         end
 
-        if row['B'] == 'image'
+        if row['B'].eql? 'image'
           required_string = row['H'] ? ", required: true, " : ''
           # add image form field details
           thor_action(
@@ -284,7 +284,7 @@ section.content\n
           )
         end
         # if required is true, add presence validations to object model
-        if row['H'] == true && fae_generator_type != 'page'
+        if row['H'].eql? true && fae_generator_type != 'page'
           thor_action(
             :inject_into_file,
             "app/models/#{model.underscore}.rb",
@@ -294,7 +294,7 @@ section.content\n
         end
 
         # if markdown is true, add it to the form
-        if row['I'] == true
+        if row['I'].eql? true
           thor_action(
             :gsub_file,
             form_path,
@@ -303,7 +303,7 @@ section.content\n
         end
       end
       # For nested scaffold objects, we will want their nested table on their parent's form
-      if fae_generator_type == 'nested_scaffold'
+      if fae_generator_type.eql? 'nested_scaffold'
         self.add_nested_form_table(parent_model, model)
       end
     end
