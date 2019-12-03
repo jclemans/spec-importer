@@ -243,9 +243,8 @@ section.content\n
 
       sheet.simple_rows.each_with_index do |row, index|
         # If a row is marked skip, go to the next row. Otherwise we exit the import if no field name is present.
-        if index < 11 || row['E'].eql? 'Skip'
-          next
-        elsif row['F'].blank? && row['G'].blank?
+        next if index < 11 || row['E'].eql? 'Skip'
+        if row['F'].blank? && row['G'].blank?
           STDOUT.puts "No form label/type specified in column F or G. Exiting the update_form_fields task."
           break
         end
