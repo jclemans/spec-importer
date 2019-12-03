@@ -242,8 +242,11 @@ section.content\n
       fae_generator_type = sheet.simple_rows.to_a[8]['B']
 
       sheet.simple_rows.each_with_index do |row, index|
-        # If a row is marked skip, go to the next row. Otherwise we exit the import if no field name is present.
-        next if index < 11 || row['E'].eql? 'Skip'
+        # ignore rows index 0 to 10
+        next if index < 11
+        # If a row is marked skip, go to the next row.
+        next if row['E'].eql? 'Skip'
+        # Exit the import if no field name is present.
         if row['F'].blank? && row['G'].blank?
           STDOUT.puts "No form label/type specified in column F or G. Exiting the update_form_fields task."
           break
