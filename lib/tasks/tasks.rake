@@ -23,7 +23,7 @@ namespace :import do
 
     sheet = creek.sheets[num.to_i]
     # if the sheet is the "ToRemoveList", read the list and remove objects we don't need
-    if sheet.name.eql? 'ToRemoveList'
+    if sheet.name.eql?('ToRemoveList')
       STDOUT.puts "Reading the ToRemoveList...\n"
       SpecImporter.remove_objects(sheet)
     # otherwise read the sheet and create or update object as specified in the sheet
