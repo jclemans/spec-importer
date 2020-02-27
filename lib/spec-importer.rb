@@ -17,21 +17,17 @@ module SpecImporter
       }
 
       sheet.simple_rows.each_with_index do |row, index|
+        next if index < 11
         next if row['E'].eql? 'Skip'
-
-        if index > 10
-          break if row['A'].blank? || row['B'].blank?
-          if row['B'].eql?('join')
-            # generate join table model and migration
-            join_models = row['A'].split.sort
-            script_args[:joins] << self.generate_join(join_models)
-          else
-            optional_index = row['C'].eql?(true) ? ':index' : ''
-            row_args = "#{row['A']}:#{row['B']}" << optional_index
-            script_args[:fae] << row_args
-          end
+        break if row['A'].blank? || row['B'].blank?
+        if row['B'].eql?('join')
+          # generate join table model and migration
+          join_models = row['A'].split.sort
+          script_args[:joins] << self.generate_join(join_models)
         else
-          next
+          optional_index = row['C'].eql?(true) ? ':index' : ''
+          row_args = "#{row['A']}:#{row['B']}" << optional_index
+          script_args[:fae] << row_args
         end
       end
       return script_args
