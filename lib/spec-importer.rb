@@ -62,7 +62,7 @@ module SpecImporter
             sh "rails g migration Remove#{row['A'].classify}From#{model_name} #{row['A']}:#{row['B']}"
 
             # comment out this row's field for static page forms
-            if fae_generator_type.eql?('Fae::StaticPage')
+            if fae_generator_type.eql?('page')
               thor_action(
                 :comment_lines,
                 "app/views/admin/content_blocks/#{model_name.underscore.gsub('_page', '')}.html.slim",
@@ -192,7 +192,7 @@ module SpecImporter
     end
 
     def add_nested_form_table(parent_model, nested_model)
-      if parent_model.eql?('Fae::StaticPage')
+      if parent_model.eql?('StaticPage')
         parent_form_path = "app/views/admin/content_blocks/#{parent_model.underscore}.html.slim"
         parent_item_str = "Fae::StaticPage.find_by_id(@item.id)"
         # add the has many association to the static page concern
