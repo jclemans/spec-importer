@@ -5,7 +5,7 @@ module SpecImporter
   class << self
 
     def create_object(sheet)
-      model_name = sheet.simple_rows.first['B']
+      model_name = sheet.simple_rows.first['B'].gsub(' ', '_').camelize
       # Exit if the current model already was created.
       return if Object.const_defined?(model_name)
 
@@ -35,7 +35,7 @@ module SpecImporter
 
     def update_object(sheet)
       script_args = []
-      model_name = sheet.simple_rows.first['B']
+      model_name = sheet.simple_rows.first['B'].gsub(' ', '_').camelize
       fae_generator_type = sheet.simple_rows.to_a[8]['B']
       parent_class = sheet.simple_rows.to_a[8]['D']
 
@@ -135,9 +135,11 @@ module SpecImporter
 
         # Optional: Destroy the model instead of just disabling/hiding
         # > Create a migration to remove the object table
-        # sh "rails g migration Remove#{response[:model_name]}"
+        STDOUT.puts "Creating a migration to remove table for #{model_name}..."
+        Rake.sh "rails g migration Remove#{model_name}"
         # > Remove the model, fae views, and controllers
-        # sh "rails destroy fae:#{response[:fae_generator_type]} #{response[:model_name]}"
+        STDOUT.puts "Removing the model, views, and controllers for #{model_name}..."
+        Rake.sh "rails destroy scaffold #{model_name}"
       end
     end
 
@@ -233,7 +235,7 @@ section.content\n
 
     def update_form_fields(sheet)
       # Read and import field labels and helper text for an object that has been generated.
-      model = sheet.simple_rows.first['B']
+      model = sheet.simple_rows.first['B'].gsub(' ', '_').camelize
       parent_model = sheet.simple_rows.to_a[8]['D']
       fae_generator_type = sheet.simple_rows.to_a[8]['B']
 

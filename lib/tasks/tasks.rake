@@ -10,7 +10,7 @@ namespace :import do
       path               = args[:file_path]
       num                = args[:sheet_number]
       object_action      = args[:object_action]
-      creek              = Creek::Book.new path
+      creek            ||= Creek::Book.new path
     else
       # Use the command line prompt to set file path and choose sheet
       STDOUT.puts "Enter path to xlsx file in project (E.g. 'tmp/testfile.xlsx')."
@@ -20,11 +20,10 @@ namespace :import do
       STDOUT.puts "Select sheet to import: [0-#{creek.sheets.length}]"
       num = STDIN.gets.chomp
     end
-
     sheet = creek.sheets[num.to_i]
     # if the sheet is the "ToRemoveList", read the list and remove objects we don't need
-    if sheet.name.eql?('ToRemoveList')
-      STDOUT.puts "Reading the ToRemoveList...\n"
+    if sheet.name.upcase.eql?('OBJECTS TO REMOVE')
+      STDOUT.puts "Reading the OBJECTS TO REMOVE rows...\n"
       SpecImporter.remove_objects(sheet)
     # otherwise read the sheet and create or update object as specified in the sheet
     else
