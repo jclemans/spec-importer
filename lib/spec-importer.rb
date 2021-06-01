@@ -170,24 +170,29 @@ module SpecImporter
     end
 
     def generate_join(models)
-      "rails g model #{models.first.classify}#{models.second.classify} #{models.first}:references:index #{models.second}:references:index"
+      if models.count == 2
+        "rails g model #{models.first.classify}#{models.second.classify} #{models.first}:references:index #{models.second}:references:index"
+      else
+        puts "Be sure the join entry name is formatted as two underscored words with a space between. You entered: '#{models}'."
+      end
     end
 
     def associate_joined(models)
+      puts "SpecImporter #associate_joined)... models: #{models}"
       join_model_name = "#{models.first}_#{models.second.pluralize}"
-      model_a = models.first
-      model_b = models.second
+      model_a = models.first.singularize
+      model_b = models.second.singularize
 
       thor_action(
         :inject_into_file,
-        "app/models/#{model_a.underscore}.rb",
+        "models/#{model_a.underscore}.rb",
         "  has_many :#{join_model_name}\n  has_many :#{model_b.pluralize}, through: :#{join_model_name}\n",
         after: "class #{model_a.classify} < ApplicationRecord\n"
       )
 
       thor_action(
         :inject_into_file,
-        "app/models/#{model_b.underscore}.rb",
+        "models/#{model_b.underscore}.rb",
         "  has_many :#{join_model_name}\n  has_many :#{model_a.pluralize}, through: :#{join_model_name}\n",
         after: "class #{model_b.classify} < ApplicationRecord\n"
       )

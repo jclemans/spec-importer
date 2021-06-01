@@ -49,7 +49,8 @@ namespace :import do
         sh generate_join_string
       end
       # run migrations
-      sh 'rake db:migrate'
+      # uncomment to automatically run migrations. leave commented to run manually.
+      # sh 'rake db:migrate'
       # apply form labels, helper text, etc
       SpecImporter.update_form_fields(sheet)
     end
